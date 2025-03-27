@@ -1,0 +1,3 @@
+This is here as a placeholder file but I'm also adding this informatio
+
+The motor needs to run on 12v but the Arduino should run on 5, so we'll need to step the voltage down and add an optoisolator between the arduino and motor to prevent frying the arduino.
