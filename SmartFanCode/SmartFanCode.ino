@@ -20,6 +20,7 @@
 #define DHTTYPE DHT22
 
 const int MOTOR_PIN = 9;
+//create a fucntion, set fan speed, paramebeter be pulse with, analog write()motorpin,
 const int BUZZER_PIN = 5;
 const int ALARM_BUTTON_PIN = 6;
 const int SCREEN_WIDTH = 128; // OLED display width, in pixels
@@ -679,4 +680,8 @@ void triggerAlarm() {
 
 void restartProgram() {
     NVIC_SystemReset(); // Triggers a system reset on ARM Cortex-M4
+}
+//Sets the fan speed based on which number on the dpad was pressed
+void setFanSpeed(int percentage) {
+  analogWrite(MOTOR_PIN, int((percentage/100)*255));
 }
