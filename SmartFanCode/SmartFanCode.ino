@@ -2,7 +2,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h> // This and GFX drive the display
 #include <Adafruit_NeoPixel.h>
-#include <DHT.h> // For the temperature sensor
 #include <IRremote.h>
 #include <RTClib.h>
 #include <TimeLib.h> // Allows us to set DateTime and keep track of the time after syncing to the RTC
@@ -16,8 +15,7 @@
 #define NEO_PIN 2
 #define NUM_LEDS 16
 #define IR_PIN 4
-#define DHTPIN 3
-#define DHTTYPE DHT22
+#define temperaturePin A0
 
 const int MOTOR_PIN = 9;
 const int BUZZER_PIN = 5;
@@ -48,10 +46,12 @@ bool alarmButtonPreviouslyDown = false;
 volatile bool alarmJustTriggered = false; // Needs to be volatile because the bool is being set inside an interrupt
 unsigned long alarmWentOffTime;
 unsigned long lastNeoUpdate = 0;
+unsigned long lastTempUpdate = 0;
 int neoPixelMode = 0;
 int neoPixelIndex = 1;
 int neoPixelBrightness = 255;
 int neoPixelFadeDirection = -1;
+float temperatureF;
 
 int alarmHour = 12;
 int alarmMinute = 30;
@@ -84,13 +84,12 @@ int tempTimeSecond = 0;
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-DHT dht(DHTPIN, DHTTYPE);
 Adafruit_NeoPixel ring(NUM_LEDS, NEO_PIN, NEO_GRB + NEO_KHZ800);
 IRrecv receiver(IR_PIN);
 RTC_DS1307 rtc;
 AlarmID_t mainAlarm;
 
-void checkForIR(); void mainMenu(); void setAlarmMenu(); void setFanSpeedMenu(); void setTimeMenu(); void neoPixelConfigMenu(); void displayCenteredText(String text, int height); void displayRightAlignedText(String text, int height); void drawDisplayHeader(); void menuSelectionMenu(); void alarmGoingOffMenu(); void restartProgram(); void animateNeoPixel(); void triggerAlarm(); // Define the functions before the loop so I can have their contents after the loop
+void checkForIR(); void mainMenu(); void setAlarmMenu(); void setFanSpeedMenu(); void setTimeMenu(); void neoPixelConfigMenu(); void displayCenteredText(String text, int height); void displayRightAlignedText(String text, int height); void drawDisplayHeader(); void menuSelectionMenu(); void alarmGoingOffMenu(); void restartProgram(); void animateNeoPixel(); void triggerAlarm(); void updateTemperature(); // Define the functions before the loop so I can have their contents after the loop
 
 
 void setup() {
@@ -112,7 +111,6 @@ void setup() {
 
   ring.begin();
   receiver.enableIRIn();
-  dht.begin();
 
   pinMode(ALARM_BUTTON_PIN, INPUT_PULLUP);
 
@@ -137,6 +135,11 @@ void setup() {
 void loop() {
   Alarm.delay(0); // Needed to refresh the time in the TimeAlarms library
   checkForIR();
+  if (millis() - lastTempUpdate >= 1000) // If a second has passed
+  {
+    updateTemperature();
+    lastTempUpdate = millis();
+  }
 
   if (!poweredOn && !alarmEnabled) { // Stops the code if the device is off and the alarm isn't going off
     if (pressedButton == 6) poweredOn = true; // Turns device on if power button is pressed
@@ -245,12 +248,26 @@ void drawDisplayHeader() {
   sprintf(timeText, "%02d:%02d:%02d", hour(), minute(), second());
   displayCenteredText(String(timeText), 0);
 
-  String temperatureText = String(int(dht.readTemperature(true))) + "F";
+  String temperatureText = String(int(temperatureF)) + "\xC2\xB0" + "F"; // Prints degree symbol with the temperature
   displayRightAlignedText(temperatureText, 0);
 
   display.drawBitmap(1, 0, alarmEnabled ? alarmOnIcon : alarmOffIcon, 8, 8, SSD1306_WHITE); // Uses a ternary operator to select the correct icon | Allows us to avoid an if statement
 
   display.drawLine(0, 9, 128, 9, SSD1306_WHITE);
+}
+
+void updateTemperature(){
+  // Get the voltage reading from the TMP36
+  int reading = analogRead(temperaturePin);
+
+  // Convert that reading into voltage
+  // Replace 5.0 with 3.3, if using a 3.3V Arduino
+  float voltage = reading * (3.3 / 1024.0);
+  
+  float temperatureC = (voltage - 0.5) * 100;
+
+  // Converts the temperature to F
+  temperatureF = (temperatureC * 9.0 / 5.0) + 32.0;
 }
 
 void setAlarmMenu() {
