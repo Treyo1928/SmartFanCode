@@ -11,7 +11,7 @@ void loop() {
   int reading = analogRead(sensorPin);
 
   // Convert that reading into voltage
-  // Replace 5.0 with 3.3, if you are using a 3.3V Arduino
+  // Replace 5.0 with 3.3, if using a 3.3V Arduino
   float voltage = reading * (3.3 / 1024.0);
 
   // Convert the voltage into the temperature in Celsius
