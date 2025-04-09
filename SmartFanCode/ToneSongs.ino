@@ -1,4 +1,4 @@
-#include <TimerFreeTone.h>
+#include "TimerFreeTone.h"
 
 using namespace std;
 
@@ -48,22 +48,22 @@ int songNum;
 
 void playSong(int song);
 
-void setup() {
-  Serial.begin(9600);
-  while (!Serial) {
-    ; // wait for Serial port to connect. Needed for native USB boards
-  }
-  Serial.println("Setup Started");
-}
-void loop() {
-  while (Serial.available() == 0) {
-    // Do nothing, just wait
-  }
-  String input = Serial.readStringUntil('\n');
-  int songNum = input.toInt();
+// void setup() {
+//   Serial.begin(9600);
+//   while (!Serial) {
+//     ; // wait for Serial port to connect. Needed for native USB boards
+//   }
+//   Serial.println("Setup Started");
+// }
+// void loop() {
+//   while (Serial.available() == 0) {
+//     // Do nothing, just wait
+//   }
+//   String input = Serial.readStringUntil('\n');
+//   int songNum = input.toInt();
 
-  playSong(songNum);
-}
+//   playSong(songNum);
+// }
 
 void playSong(int song) {
   if (song == 1){
