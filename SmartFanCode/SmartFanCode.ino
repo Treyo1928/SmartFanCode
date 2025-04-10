@@ -6,12 +6,10 @@
 #include <RTClib.h>
 #include <TimeLib.h> // Allows us to set DateTime and keep track of the time after syncing to the RTC
 #include <TimeAlarms.h>
-// #include <EEPROM.h>
-#include <NanoBLEFlashPrefs.h> // EEPROM is basically storage - It allows the Arduino to remember things even after a restart
-#include "custom_chars.h"      // The header file we made to store the data for what our custom characters look like
-#include "TimerFreeTone.h"     // A custom tone libary that frees up TIMER2 so the IR Reviever can still function
-#include <mbed.h>              // Used to force the Arduino to restart
-#include "ToneSongs.h"         // Custom script for playing songs
+#include <EEPROM.h>
+#include "custom_chars.h"  // The header file we made to store the data for what our custom characters look like
+#include "TimerFreeTone.h" // A custom tone libary that frees up TIMER2 so the IR Reviever can still function
+#include "ToneSongs.h"     // Custom script for playing songs
 
 #define NEO_PIN 2
 #define NUM_LEDS 16
@@ -27,17 +25,29 @@ const int SCREEN_HEIGHT = 64; // OLED display height, in pixels
 // const int alarmHourEEPROM = 1;
 // const int alarmMinuteEEPROM = 2;
 
-typedef struct flashStruct
-{ // Nano 33 BLE Sense can't use EEPROM but instead this nonsense
-  int alarmSetBeforeEEPROM = 0;
-  int alarmHourEEPROM = 1;
-  int alarmMinuteEEPROM = 2;
-  int fanSpeed = 0;
-  int alarmSong = 0;
-  bool alarmEnabled = true;
-} flashPrefs;
-NanoBLEFlashPrefs myFlashPrefs;
-flashPrefs prefs;
+// typedef struct flashStruct
+// { // Nano 33 BLE Sense can't use EEPROM but instead this nonsense
+//   int alarmSetBeforeEEPROM = 0;
+//   int alarmHourEEPROM = 1;
+//   int alarmMinuteEEPROM = 2;
+//   int fanSpeed = 0;
+//   int alarmSong = 0;
+//   bool alarmEnabled = true;
+// } flashPrefs;
+// NanoBLEFlashPrefs myFlashPrefs;
+// flashPrefs prefs;
+
+typedef struct eepromStruct
+{
+  int alarmSetBeforeEEPROM;
+  int alarmHourEEPROM;
+  int alarmMinuteEEPROM;
+  int fanSpeed;
+  int alarmSong;
+  bool alarmEnabled;
+} eepromPrefs;
+
+eepromPrefs prefs;
 
 int menu = 0;
 int pressedButton = 0;
@@ -113,8 +123,9 @@ void animateNeoPixel();
 void triggerAlarm();
 void updateFanSpeed();
 void updateTemperature(); // Define the functions before the loop so I can have their contents after the loop
-void nuclearResetFlash();
-
+void loadPreferences();
+void savePreferences();
+void resetEEPROM();
 void setup()
 {
   Serial.begin(9600);
@@ -138,15 +149,17 @@ void setup()
 
   DateTime now = rtc.now();
   setTime(now.hour(), now.minute(), now.second(), now.day(), now.month(), now.year());
-  int rc = myFlashPrefs.readPrefs(&prefs, sizeof(prefs)); // Updates the pref variables with what is stored
-  if (prefs.alarmSetBeforeEEPROM != 19283730)
+  EEPROM.begin();
+  loadPreferences();
+  if (prefs.alarmSetBeforeEEPROM != 91)
   {
     prefs.alarmHourEEPROM = 12;
     prefs.alarmMinuteEEPROM = 30;
-    prefs.alarmSetBeforeEEPROM = 19283730;
+    prefs.alarmSetBeforeEEPROM = 91;
     prefs.fanSpeed = 0;
     prefs.alarmSong = 0;
     prefs.alarmEnabled = true;
+    savePreferences();
   }
   else
   {
@@ -248,7 +261,7 @@ void mainMenu()
     if (fanSpeed > 100)
       fanSpeed = 100;
     prefs.fanSpeed = fanSpeed;
-    myFlashPrefs.writePrefs(&prefs, sizeof(prefs));
+    savePreferences();
     updateFanSpeed();
     break;
   case 13:
@@ -256,7 +269,7 @@ void mainMenu()
     if (fanSpeed < 0)
       fanSpeed = 0;
     prefs.fanSpeed = fanSpeed;
-    myFlashPrefs.writePrefs(&prefs, sizeof(prefs));
+    savePreferences();
     updateFanSpeed();
     break;
   case 25:
@@ -310,9 +323,9 @@ void drawDisplayHeader()
     Serial.println("Alarm Button Pressed");
     alarmEnabled = !alarmEnabled;
     prefs.alarmEnabled = alarmEnabled;
-    myFlashPrefs.writePrefs(&prefs, sizeof(prefs));
+    savePreferences();
   }
-  
+
   display.setTextSize(2);
   char timeText[9]; // Buffer for "HH:MM:SS\0"
   sprintf(timeText, "%02d:%02d:%02d", hour(), minute(), second());
@@ -427,7 +440,7 @@ void setAlarmMenu()
       // mainAlarm = Alarm.alarmRepeat(alarmHour, alarmMinute, 0, triggerAlarm);
       prefs.alarmHourEEPROM = alarmHour;
       prefs.alarmMinuteEEPROM = alarmMinute;
-      myFlashPrefs.writePrefs(&prefs, sizeof(prefs));
+      savePreferences();
       // int rc = myFlashPrefs.readPrefs(&prefs, sizeof(prefs));
       // menuSelectionIndex = 0;
       Serial.print("Alarm saved and set for: ");
@@ -531,7 +544,7 @@ void setAlarmSound()
     menu = 5; // Menu Selection Index is the currently selected menu
     alarmSong = menuSelectionIndex;
     prefs.alarmSong = alarmSong;
-    myFlashPrefs.writePrefs(&prefs, sizeof(prefs));
+    savePreferences();
     menuSelectionIndex = 0;
     break;
   case 14:
@@ -904,17 +917,18 @@ void menuSelectionMenu()
     menuSelectionIndex = (menuSelectionIndex + 1) % 5;
     break;
   case 9:
-    if (menuSelectionIndex == 4) nuclearResetFlash();
+    if (menuSelectionIndex == 4) resetEEPROM();
 
     menu = menuSelectionIndex + 1; // Menu Selection Index is the currently selected menu
     Serial.print("Selected Menu: ");
     Serial.println(menu);
     menuSelectionIndex = 0;
-    if (menu == 2){
+    if (menu == 2)
+    {
       menuSelectionIndex = alarmSong;
       resetSongs();
     }
-      break;
+    break;
   case 14:
     menu = 0;
     menuSelectionIndex = 0;
@@ -954,7 +968,22 @@ void restartProgram()
   NVIC_SystemReset(); // Triggers a system reset on ARM Cortex-M4
 }
 
+void loadPreferences()
+{
+  EEPROM.get(0, prefs);
+}
 
+void savePreferences()
+{
+  EEPROM.put(0, prefs);
+}
+
+
+void resetEEPROM(){
+  prefs.alarmSetBeforeEEPROM = 0;
+  savePreferences();
+  restartProgram();
+}
 // DO NOT RUN THIS STUPID CODE
 
 // void nuclearResetFlash() {
@@ -971,7 +1000,7 @@ void restartProgram()
 //   flash.deinit();
 
 //   delay(1000);
-  
+
 //   // Force a reboot to apply changes
 //   NVIC_SystemReset();
 // }
