@@ -17,6 +17,10 @@
 #define temperaturePin A0
 
 const int MOTOR_PIN = 9;
+int manualFanSpeed = 50;
+const int UP_BUTTON_PIN = 6;
+const int DOWN_BUTTON_PIN = 7;
+
 const int BUZZER_PIN = 5;
 const int SCREEN_WIDTH = 128; // OLED display width, in pixels
 const int SCREEN_HEIGHT = 64; // OLED display height, in pixels
@@ -126,8 +130,12 @@ void updateTemperature(); // Define the functions before the loop so I can have 
 void loadPreferences();
 void savePreferences();
 void resetEEPROM();
-void setup()
+void setup() 
 {
+  pinMode(UP_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(DOWN_BUTTON_PIN, INPUT_PULLUP);
+  setFanSpeed(manualFanSpeed);
+
   Serial.begin(9600);
   Serial.println("Setup Started");
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
@@ -240,6 +248,7 @@ void loop()
   }
 
   animateNeoPixel();
+  checkFanButtons();
 }
 
 void mainMenu()
@@ -983,6 +992,24 @@ void resetEEPROM(){
   prefs.alarmSetBeforeEEPROM = 0;
   savePreferences();
   restartProgram();
+}
+
+void checkFanButtons() {
+  if (digitalRead(UP_BUTTON_PIN) == LOW) {
+    manualFanSpeed = min(manualFanSpeed + 10, 100);
+    setFanSpeed(manualFanSpeed);
+    delay(200); // debounce
+  }
+  if (digitalRead(DOWN_BUTTON_PIN) == LOW) {
+    manualFanSpeed = max(manualFanSpeed - 10, 0);
+    setFanSpeed(manualFanSpeed);
+    delay(200); // debounce
+  }
+}
+
+void setFanSpeed(int percentage) {
+  percentage = constrain(percentage, 0, 100);
+  analogWrite(MOTOR_PIN, (percentage * 255) / 100);
 }
 // DO NOT RUN THIS STUPID CODE
 
