@@ -256,6 +256,7 @@ void mainMenu()
     display.display();
     pressedButton = -2;
     break;
+  case 10:
   case 5: // Up Arrow
     fanSpeed += 5;
     if (fanSpeed > 100)
@@ -264,6 +265,7 @@ void mainMenu()
     savePreferences();
     updateFanSpeed();
     break;
+  case 8:
   case 13:
     fanSpeed += -5;
     if (fanSpeed < 0)
@@ -272,8 +274,80 @@ void mainMenu()
     savePreferences();
     updateFanSpeed();
     break;
+  case 12:
+    if (fanSpeed == 0) fanSpeed = 100;
+    else fanSpeed = 0;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+  case 16:
+    fanSpeed = 10;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+  case 17:
+    fanSpeed = 20;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+  case 18:
+    fanSpeed = 30;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+  case 20:
+    fanSpeed = 40;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+  case 21:
+    fanSpeed = 50;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+  case 22:
+    fanSpeed = 60;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+  case 24:
+    fanSpeed = 70;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
   case 25:
-    restartProgram();
+    fanSpeed = 80;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+  case 26:
+    fanSpeed = 90;
+    prefs.fanSpeed = fanSpeed;
+    savePreferences();
+    updateFanSpeed();
+    break;
+
+
+/*
+  IR REMOTE BUTTON TO CODE CONVERSION
+  -----------------------------------
+  0 - Vol-     1 - Play    2 - Vol+
+  4 - Setup    5 - Up      6 - Stop
+  8 - Left     9 - Enter   10 - Right
+  12 -         13 - Down   14 - Back
+  16 - 1       17 - 2      18 - 3
+  20 - 4       21 - 5      22 - 6
+  24 - 7       25 - 8      26 - 9
+*/
   default:
     display.clearDisplay();
     drawDisplayHeader();
@@ -905,19 +979,19 @@ void menuSelectionMenu()
   switch (pressedButton)
   {
   case 8: // The left button (Directly to the left of play)
-    menuSelectionIndex = (menuSelectionIndex + 4) % 5;
+    menuSelectionIndex = (menuSelectionIndex + 2) % 3;
     break;
   case 5: // The plus button
-    menuSelectionIndex = (menuSelectionIndex + 4) % 5;
+    menuSelectionIndex = (menuSelectionIndex + 2) % 3;
     break;
   case 10: // The next button (Directly to the right of play)
-    menuSelectionIndex = (menuSelectionIndex + 1) % 5;
+    menuSelectionIndex = (menuSelectionIndex + 1) % 3;
     break;
   case 13: // The Minute Button
-    menuSelectionIndex = (menuSelectionIndex + 1) % 5;
+    menuSelectionIndex = (menuSelectionIndex + 1) % 3;
     break;
   case 9:
-    if (menuSelectionIndex == 4) resetEEPROM();
+    // if (menuSelectionIndex == 4) resetEEPROM();
 
     menu = menuSelectionIndex + 1; // Menu Selection Index is the currently selected menu
     Serial.print("Selected Menu: ");
@@ -943,10 +1017,10 @@ void menuSelectionMenu()
     display.println("Alarm Sound");
     display.setCursor(8, 36);
     display.println("Set Current Time");
-    display.setCursor(8, 46);
-    display.println("Configure NeoPixel");
-    display.setCursor(8, 56);
-    display.println("Reset Save-Data");
+    // display.setCursor(8, 46);
+    // display.println("Configure NeoPixel");
+    // display.setCursor(8, 56);
+    // display.println("Reset Save-Data");
 
     display.setCursor(0, 10 * menuSelectionIndex + 16);
     display.println(">");
