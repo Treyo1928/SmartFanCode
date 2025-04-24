@@ -525,19 +525,19 @@ void setAlarmSound()
   switch (pressedButton)
   {
   case 8: // The left button (Directly to the left of play)
-    menuSelectionIndex = (menuSelectionIndex + 3) % 2;
+    menuSelectionIndex = (menuSelectionIndex + 6) % 7;
     resetSongs();
     break;
   case 5: // The plus button
-    menuSelectionIndex = (menuSelectionIndex + 3) % 2;
+    menuSelectionIndex = (menuSelectionIndex + 6) % 7;
     resetSongs();
     break;
   case 10: // The next button (Directly to the right of play)
-    menuSelectionIndex = (menuSelectionIndex + 1) % 2;
+    menuSelectionIndex = (menuSelectionIndex + 1) % 7;
     resetSongs();
     break;
   case 13: // The Minute Button
-    menuSelectionIndex = (menuSelectionIndex + 1) % 2;
+    menuSelectionIndex = (menuSelectionIndex + 1) % 7;
     resetSongs();
     break;
   case 9:
@@ -561,6 +561,17 @@ void setAlarmSound()
     display.println("Sound 1");
     display.setCursor(8, 28);
     display.println("Sound 2");
+    display.setCursor(8, 38);
+    display.println("Paris");
+    display.setCursor(8, 48);
+    display.println("Overtime");
+    display.setCursor(8, 58);
+    display.println("No Role Modelz");
+    display.setCursor(8, 68);
+    display.println("Dies Irae");
+    display.setCursor(8, 78);
+    display.println("Highest In the Room");
+
 
     display.setCursor(0, 10 * menuSelectionIndex + 18);
     display.println(">");

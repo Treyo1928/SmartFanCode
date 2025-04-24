@@ -38,6 +38,16 @@ const unsigned int sirenDuration[] = {
 
 const int sizeofSiren = sizeof(sirenMelody) / sizeof(sirenMelody[0]);
 
+const unsigned int parisMelody[] = {
+    349, 0, 262, 0, 0, 0, 415, 0, 262, 0, 0, 0, 
+    392, 0, 262, 0, 0, 0, 349, 0, 262, 0, 524, 0, 0, 0 };
+
+const unsigned int parisDuration[] = {
+    187, 50, 187, 50, 375, 50, 187, 50, 187, 50, 375, 50, 
+    187, 50, 187, 50, 375, 50, 187, 50, 187, 50, 187, 50,
+     187, 50 
+};
+
 const int *const melodies[] = {
     alarmMelody,
     sirenMelody};
