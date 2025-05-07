@@ -152,12 +152,12 @@ void songLoop(int song)
         Serial.println(songNames[song]);
         NoteIndex = 0;
         lastNoteTime = millis();
-        TimerFreeTone(TONE_PIN, melodies[song][NoteIndex], durations[song][NoteIndex], 10);
+        TimerFreeTone(TONE_PIN, melodies[song][NoteIndex], durations[song][NoteIndex] * 0.7, 10);
         return;
     }
 
     // Check if it's time to play the next note
-    if ((millis() - lastNoteTime) >= durations[song][NoteIndex])
+    if ((millis() - lastNoteTime) >= durations[song][NoteIndex] * 0.5)
     {
         lastNoteTime = millis();
         NoteIndex++;
@@ -171,7 +171,7 @@ void songLoop(int song)
         }
         
         // Play the next note
-        TimerFreeTone(TONE_PIN, melodies[song][NoteIndex], durations[song][NoteIndex], 10);
+        TimerFreeTone(TONE_PIN, melodies[song][NoteIndex], durations[song][NoteIndex] * 0.7, 10);
     }
 }
 

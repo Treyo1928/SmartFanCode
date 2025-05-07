@@ -49,6 +49,7 @@ typedef struct eepromStruct
   int neoBrightness;
   int neoSpeed;
   bool alarmEnabled;
+  int scrollOffset;
 } eepromPrefs;
 
 eepromPrefs prefs;
@@ -78,6 +79,10 @@ const int slowestNeoSpeed = 150;
 int neoSpeed = 70; // This is a percentage
 int neoWaitTime = 0;
 float temperatureF = 65;
+
+const int MAX_VISIBLE_ITEMS = 4; // Number of items that can fit on screen
+int scrollOffset = 0;            // Tracks which item is at the top of visible area
+const int TOTAL_SONGS = 7;       // Total number of songs
 
 int alarmHour = 12;
 int alarmMinute = 30;
@@ -179,6 +184,7 @@ void setup()
     prefs.neoBrightness = 25;
     prefs.alarmEnabled = true;
     prefs.neoSpeed = 70;
+    prefs.scrollOffset = 0;
     savePreferences();
   }
   else
@@ -193,6 +199,7 @@ void setup()
     neoPixelMode = prefs.neoPixelMode;
     neoBrightness = prefs.neoBrightness;
     neoSpeed = prefs.neoSpeed;
+    scrollOffset = prefs.scrollOffset;
   }
   mainAlarm = Alarm.alarmRepeat(alarmHour, alarmMinute, 0, triggerAlarm); // Alarm set for alarmHour:alarmMinute:00 | Calls the triggerAlarm method
 
@@ -756,65 +763,102 @@ void setAlarmMenu()
   }
 }
 
+
 void setAlarmSound()
 {
   switch (pressedButton)
   {
-  case 8: // The left button (Directly to the left of play)
-    menuSelectionIndex = (menuSelectionIndex + 6) % 7;
+  case 8:  // The left button (Directly to the left of play)
+  case 5:  // The plus button
+    menuSelectionIndex = (menuSelectionIndex + TOTAL_SONGS - 1) % TOTAL_SONGS;
+    
+    // Adjust scroll offset if selection is above visible area
+    if (menuSelectionIndex < scrollOffset) {
+      scrollOffset = menuSelectionIndex;
+    }
+    // Adjust scroll offset if selection is below visible area
+    else if (menuSelectionIndex >= scrollOffset + MAX_VISIBLE_ITEMS) {
+      scrollOffset = menuSelectionIndex - MAX_VISIBLE_ITEMS + 1;
+    }
+    
     resetSongs();
     break;
-  case 5: // The plus button
-    menuSelectionIndex = (menuSelectionIndex + 6) % 7;
-    resetSongs();
-    break;
+    
   case 10: // The next button (Directly to the right of play)
-    menuSelectionIndex = (menuSelectionIndex + 1) % 7;
-    resetSongs();
-    break;
   case 13: // The Minute Button
-    menuSelectionIndex = (menuSelectionIndex + 1) % 7;
+    menuSelectionIndex = (menuSelectionIndex + 1) % TOTAL_SONGS;
+    
+    // Adjust scroll offset if selection is below visible area
+    if (menuSelectionIndex >= scrollOffset + MAX_VISIBLE_ITEMS) {
+      scrollOffset = menuSelectionIndex - MAX_VISIBLE_ITEMS + 1;
+    }
+    // Adjust scroll offset if selection is above visible area
+    else if (menuSelectionIndex < scrollOffset) {
+      scrollOffset = menuSelectionIndex;
+    }
+    
     resetSongs();
     break;
-  case 9:
-    menu = 5; // Menu Selection Index is the currently selected menu
+    
+  case 9:  // Select button
+    menu = 5;
     alarmSong = menuSelectionIndex;
     prefs.alarmSong = alarmSong;
+    prefs.scrollOffset = scrollOffset;
     savePreferences();
     menuSelectionIndex = 0;
+    scrollOffset = 0; // Reset scroll when leaving menu
     break;
-  case 14:
+    
+  case 14: // Back button
     menu = 5;
     menuSelectionIndex = 0;
+    scrollOffset = 0; // Reset scroll when leaving menu
     break;
-  default: // Draws the menu options
+    
+  default: // Draw the menu options
     display.clearDisplay();
-
     display.setTextSize(1);
     displayCenteredText("Set Alarm Sound", 0);
 
-    display.setCursor(8, 18);
-    display.println("Sound 1");
-    display.setCursor(8, 28);
-    display.println("Sound 2");
-    display.setCursor(8, 38);
-    display.println("Paris");
-    display.setCursor(8, 48);
-    display.println("Overtime");
-    display.setCursor(8, 58);
-    display.println("No Role Modelz");
-    display.setCursor(8, 68);
-    display.println("Dies Irae");
-    display.setCursor(8, 78);
-    display.println("Highest In the Room");
+    // Array of song names for easier management
+    const char* songs[TOTAL_SONGS] = {
+      "Sound 1",
+      "Sound 2",
+      "Paris",
+      "Overtime",
+      "No Role Modelz",
+      "Dies Irae",
+      "Highest In the Room"
+    };
 
-    display.setCursor(0, 10 * menuSelectionIndex + 18);
-    display.println(">");
+    // Display only the visible items
+    for (int i = 0; i < MAX_VISIBLE_ITEMS; i++) {
+      int songIndex = i + scrollOffset;
+      if (songIndex < TOTAL_SONGS) {
+        display.setCursor(8, 18 + i * 10);
+        display.println(songs[songIndex]);
+        
+        // Show selection indicator
+        if (songIndex == menuSelectionIndex) {
+          display.setCursor(0, 18 + i * 10);
+          display.println(">");
+        }
+      }
+    }
+
+    // Show scroll indicators if there are more items above or below
+    if (scrollOffset > 0) {
+      display.setCursor(120, 22);
+      display.println("^"); // Up arrow
+    }
+    if (scrollOffset + MAX_VISIBLE_ITEMS < TOTAL_SONGS) {
+      display.setCursor(120, 42);
+      display.println("v"); // Down arrow
+    }
 
     display.display();
-
     songLoop(menuSelectionIndex);
-
     break;
   }
 }
@@ -1265,10 +1309,10 @@ void menuSelectionMenu()
   switch (pressedButton)
   {
   case 8: // The left button (Directly to the left of play)
-    menuSelectionIndex = (menuSelectionIndex + 2) % 4;
+    menuSelectionIndex = (menuSelectionIndex + 3) % 4;
     break;
   case 5: // The plus button
-    menuSelectionIndex = (menuSelectionIndex + 2) % 4;
+    menuSelectionIndex = (menuSelectionIndex + 3) % 4;
     break;
   case 10: // The next button (Directly to the right of play)
     menuSelectionIndex = (menuSelectionIndex + 1) % 4;
@@ -1278,14 +1322,15 @@ void menuSelectionMenu()
     break;
   case 9:
     // if (menuSelectionIndex == 4) resetEEPROM();
-
+    pressedButton = -2; // Prevents the button from being pressed again
     menu = menuSelectionIndex + 1; // Menu Selection Index is the currently selected menu
     Serial.print("Selected Menu: ");
     Serial.println(menu);
     menuSelectionIndex = 0;
-    if (menu == 2)
-    {
-      menuSelectionIndex = alarmSong % 7; // Wraparound in case there is an error
+    if (menu == 2){ // Set alarm sound menu
+      loadPreferences();
+      menuSelectionIndex = prefs.alarmSong;
+      scrollOffset = prefs.scrollOffset;
       resetSongs();
     }
     break;
