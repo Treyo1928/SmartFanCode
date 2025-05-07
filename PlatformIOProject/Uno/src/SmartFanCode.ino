@@ -44,6 +44,10 @@ typedef struct eepromStruct
   int alarmMinuteEEPROM;
   int fanSpeed;
   int alarmSong;
+  int neoPixelMode;
+  int neoColor;
+  int neoBrightness;
+  int neoSpeed;
   bool alarmEnabled;
 } eepromPrefs;
 
@@ -68,10 +72,12 @@ int neoPixelIndex = 1;
 int neoPixelFadeDirection = -1;
 int neoColor = 0;            // 0 = all white, 1 = red, 2 = green, 3 = blue, 4 = yellow, 5 = purple, 6 = pink, 7 = rainbow, 8 = off
 const int neoColorCount = 9; // Add 1 because of modulus
-const int maxNeoBrightness = 25;
+int maxNeoBrightness = 25;
 int neoBrightness = maxNeoBrightness;
-int currentBrightnessForBreath = maxNeoBrightness;
-float temperatureF;
+const int slowestNeoSpeed = 150;
+int neoSpeed = 70; // This is a percentage
+int neoWaitTime = 0;
+float temperatureF = 65;
 
 int alarmHour = 12;
 int alarmMinute = 30;
@@ -168,7 +174,11 @@ void setup()
     prefs.alarmSetBeforeEEPROM = 91;
     prefs.fanSpeed = 0;
     prefs.alarmSong = 0;
+    prefs.neoPixelMode = 0;
+    prefs.neoColor = 0;
+    prefs.neoBrightness = 25;
     prefs.alarmEnabled = true;
+    prefs.neoSpeed = 70;
     savePreferences();
   }
   else
@@ -179,11 +189,16 @@ void setup()
     alarmEnabled = prefs.alarmEnabled;
     fanSpeed = prefs.fanSpeed;
     alarmSong = prefs.alarmSong;
+    neoColor = prefs.neoColor;
+    neoPixelMode = prefs.neoPixelMode;
+    neoBrightness = prefs.neoBrightness;
+    neoSpeed = prefs.neoSpeed;
   }
   mainAlarm = Alarm.alarmRepeat(alarmHour, alarmMinute, 0, triggerAlarm); // Alarm set for alarmHour:alarmMinute:00 | Calls the triggerAlarm method
 
   pinMode(MOTOR_PIN, OUTPUT);
   updateFanSpeed();
+  neoModeUpdated();
 
   NoteIndex = 0;
 
@@ -194,7 +209,7 @@ void loop()
 {
   Alarm.delay(0); // Needed to refresh the time in the TimeAlarms library
   checkForIR();
-  
+
   animateNeoPixel();
   if (millis() - lastTempUpdate >= 1000) // If a second has passed, update the temp
   {
@@ -239,8 +254,8 @@ void loop()
   case 3:
     setTimeMenu();
     break;
-  case 4:
-    neoPixelConfigMenu();
+  case 4: // Reset EEPROM Button
+    resetEEPROM();
     break;
   case 5:
     menuSelectionMenu();
@@ -249,7 +264,6 @@ void loop()
     alarmGoingOffMenu();
     break;
   }
-
 }
 
 void mainMenu()
@@ -349,14 +363,55 @@ void mainMenu()
 
   // Neo Pixel Commands
   case 10:
-    neoPixelMode += 1;
-    neoPixelMode %= neoModes;
+    neoBrightness = maxNeoBrightness;
+    switch (menuSelectionIndex)
+    {
+    case 0: // Changing animation
+      neoPixelMode += 1;
+      neoPixelMode %= neoModes;
+      break;
+    case 1: // Changing color
+      neoColor += 1;
+      neoColor %= neoColorCount - 1;
+      break;
+    case 2: // Changing brightness
+      maxNeoBrightness += 1;
+      if (maxNeoBrightness > 40)
+        maxNeoBrightness = 40;
+      neoBrightness = maxNeoBrightness;
+      break;
+    case 3: // Changing speed
+      neoSpeed += 5;
+      if (neoSpeed > 100)
+        neoSpeed = 100;
+      break;
+    }
     neoPixelIndex = 0;
     neoModeUpdated();
     break;
   case 8:
-    neoPixelMode += neoModes - 1;
-    neoPixelMode %= neoModes;
+    neoBrightness = maxNeoBrightness;
+    switch (menuSelectionIndex)
+    {
+    case 0: // Changing animation
+      neoPixelMode += 3;
+      neoPixelMode %= neoModes;
+      break;
+    case 1: // Changing color
+      neoColor += neoColorCount - 2;
+      neoColor %= neoColorCount - 1;
+      break;
+    case 2: // Changing brightness
+      maxNeoBrightness -= 1;
+      if (maxNeoBrightness < 0)
+        maxNeoBrightness = 0;
+      neoBrightness = maxNeoBrightness;
+    case 3: // Changing speed
+      neoSpeed -= 5;
+      if (neoSpeed < 0)
+        neoSpeed = 0;
+      break;
+    }
     neoPixelIndex = 0;
     neoModeUpdated();
     break;
@@ -367,10 +422,14 @@ void mainMenu()
   //   neoModeUpdated();
   //   break;
   case 2:
-    neoColor += 1;
-    neoColor %= neoColorCount;
-    neoPixelIndex = 0;
-    neoModeUpdated();
+    // neoColor += 1;
+    // neoColor %= neoColorCount;
+    // neoPixelIndex = 0;
+    // neoModeUpdated();
+
+    // Used to be used for changing color but now changes neo editing mode
+    menuSelectionIndex++;
+    menuSelectionIndex %= 4;
     break;
 
     /*
@@ -400,6 +459,68 @@ void mainMenu()
 
     String fanSpeedString = String(fanSpeed) + "% Fan Speed";
     displayCenteredText(fanSpeedString, 37);
+
+    String neoEditModeString;
+    switch (menuSelectionIndex)
+    {
+    case 0:
+      neoEditModeString = "Mode: ";
+      switch (neoPixelMode)
+      {
+      case 0:
+        neoEditModeString += "Wipe";
+        break;
+      case 1:
+        neoEditModeString += "Cycle";
+        break;
+      case 2:
+        neoEditModeString += "Breathe";
+        break;
+      case 3:
+        neoEditModeString += "Solid Color";
+        break;
+      }
+      break;
+    case 1:
+      neoEditModeString = "Color: ";
+      switch (neoColor)
+      { // neoColor guide: 0 = all white, 1 = red, 2 = green, 3 = blue, 4 = yellow, 5 = purple, 6 = pink, 7 = rainbow
+      case 0:
+        neoEditModeString += "White";
+        break;
+      case 1:
+        neoEditModeString += "Red";
+        break;
+      case 2:
+        neoEditModeString += "Green";
+        break;
+      case 3:
+        neoEditModeString += "Blue";
+        break;
+      case 4:
+        neoEditModeString += "Yellow";
+        break;
+      case 5:
+        neoEditModeString += "Purple";
+        break;
+      case 6:
+        neoEditModeString += "Pink";
+        break;
+      case 7:
+        neoEditModeString += "Rainbow";
+        break;
+      }
+      break;
+    case 2:
+      neoEditModeString = "Brightness: ";
+      neoEditModeString += String(int((float(maxNeoBrightness) / 40.00) * 100)) + "%";
+      break;
+    case 3:
+      neoEditModeString = "LED Speed: ";
+      neoEditModeString += String(neoSpeed) + "%";
+      break;
+    }
+    displayCenteredText(neoEditModeString, 46);
 
     display.display();
     break;
@@ -473,7 +594,8 @@ void updateTemperature()
   float temperatureC = (voltage - 0.5) * 100;
 
   // Converts the temperature to F
-  temperatureF = (temperatureC * 9.0 / 5.0) + 32.0;
+  int temperatureHolder = (temperatureC * 9.0 / 5.0) + 32.0;
+  if (temperatureHolder > 0) temperatureF = temperatureHolder;
 }
 
 void setAlarmMenu()
@@ -892,56 +1014,81 @@ void animateNeoPixel()
 {
   unsigned long currentMillis = millis();
 
-  if (currentMillis - lastNeoUpdate > 50)
+  if (currentMillis - lastNeoUpdate > neoWaitTime)
   { // Adjust timing for different effects
     lastNeoUpdate = currentMillis;
-    switch (menu)
+    if (neoColor == 8)
     {
-    case 2:
+      ring.clear(); // Turns off the LEDs
+      ring.show();
+      return; // Prevents the for loop after from running
+    }
+    switch (neoPixelMode)
+    {
+    case 0: // Wipe effect
+      ring.clear();
+      updatePixelWithColor(neoColor, neoPixelIndex);
+      ring.show();
+      neoPixelIndex = (neoPixelIndex + 1) % (NUM_LEDS - 4);
       break;
-    default:
-      if (neoColor == 8){
-        ring.clear(); // Turns off the LEDs
-        ring.show();
-        return; // Prevents the for loop after from running
-      }
-      switch (neoPixelMode)
+    case 1: // Cycle
+      if (neoPixelIndex < NUM_LEDS - 4)
       {
-      case 0: // Wipe effect
-        ring.clear();
-        updatePixelWithColor(neoColor, neoPixelIndex);
-        ring.show();
-        neoPixelIndex = (neoPixelIndex + 1) % (NUM_LEDS - 4);
-        break;
-      case 1: // Cycle
-        if (neoPixelIndex < NUM_LEDS - 4)
-        {
-          Serial.println(neoPixelIndex);
-          updatePixelWithColor(neoColor, neoPixelIndex); // Sets the color of the pixel
-        }
-        else
-        {
-          Serial.println(neoPixelIndex);
-          ring.setPixelColor(neoPixelIndex % (NUM_LEDS - 4), 0, 0, 0); // Sets the color of the pixel to black (off)
-        }
-        ring.show();
-        neoPixelIndex = (neoPixelIndex + 1) % ((NUM_LEDS - 4) * 2);
-        break;
-
-      case 2: // Breathing effect
-        currentBrightnessForBreath += neoPixelFadeDirection * 1;
-        if (currentBrightnessForBreath >= maxNeoBrightness || currentBrightnessForBreath <= 1)
-        {
-          neoPixelFadeDirection *= -1;
-        }
-        ring.setBrightness(currentBrightnessForBreath); // Set all LEDs to the brightness level
-        ring.show();
-        break;
-      case 3:  // solid
-        ring.show();
-        break; // Does nothing
+        updatePixelWithColor(neoColor, neoPixelIndex); // Sets the color of the pixel
       }
+      else
+      {
+        ring.setPixelColor(neoPixelIndex % (NUM_LEDS - 4), 0, 0, 0); // Sets the color of the pixel to black (off)
+      }
+      ring.show();
+      neoPixelIndex = (neoPixelIndex + 1) % ((NUM_LEDS - 4) * 2);
       break;
+
+    case 2: // Breathing effect
+      neoBrightness += neoPixelFadeDirection * 1;
+      if (neoBrightness >= maxNeoBrightness || neoBrightness <= 1)
+      {
+        neoBrightness = neoBrightness <= 1 ? 1 : maxNeoBrightness; // Helps clamp the brightness
+        neoPixelFadeDirection *= -1;
+      }
+      if (neoColor == 7) // Rainbow pattern
+      {
+        // Apply brightness scaling while maintaining color ratios
+        for (int i = 0; i < NUM_LEDS; i++)
+        {
+          uint32_t color = wheel((i * 256 / NUM_LEDS) & 255);
+          
+          // Extract RGB components
+          uint8_t r = (color >> 16) & 0xFF;
+          uint8_t g = (color >> 8) & 0xFF;
+          uint8_t b = color & 0xFF;
+          
+          // Scale with brightness while maintaining color ratios
+          r = (r * neoBrightness) / maxNeoBrightness;
+          g = (g * neoBrightness) / maxNeoBrightness;
+          b = (b * neoBrightness) / maxNeoBrightness;
+          
+          // Ensure minimum brightness to maintain color perception
+          if (neoBrightness < 20) { // Adjust this threshold as needed
+            uint8_t minVal = 1; // Minimum value to maintain color
+            if (r > 0) r = max(r, minVal);
+            if (g > 0) g = max(g, minVal);
+            if (b > 0) b = max(b, minVal);
+          }
+          
+          ring.setPixelColor(i, r, g, b);
+        }
+      }
+      else 
+      {
+        // For solid colors, use the standard brightness control
+        ring.setBrightness(neoBrightness);
+      }
+      ring.show();
+      break;
+    case 3: // solid
+      ring.show();
+      break; // Does nothing
     }
   }
 }
@@ -1003,12 +1150,20 @@ void updatePixelWithColor(int color, int pixel)
 
 void neoModeUpdated()
 { // neoColor guide: 0 = all white, 1 = red, 2 = green, 3 = blue, 4 = yellow, 5 = purple, 6 = pink, 7 = rainbow
-  currentBrightnessForBreath = neoBrightness;
+  prefs.neoColor = neoColor;
+  prefs.neoPixelMode = neoPixelMode;
+  prefs.neoBrightness = neoBrightness;
+  prefs.neoSpeed = neoSpeed;
+  savePreferences();
+
+  neoWaitTime = map(neoSpeed, 0, 100, slowestNeoSpeed, 5); // Maps the speed to a wait time between updates
+
+  ring.setBrightness(neoBrightness); // Set all LEDs to the brightness level
   if (neoColor == 7)
   {
     for (int i = 0; i < NUM_LEDS; i++)
       ring.setPixelColor(i, wheel((i * 256 / NUM_LEDS) & 255)); // Set the color of each pixel in the ring
-    return; // Prevents the for loop after from running
+    return;                                                     // Prevents the for loop after from running
   }
 
   // figure out the color to generate
@@ -1016,12 +1171,10 @@ void neoModeUpdated()
   int red = colors[0];
   int green = colors[1];
   int blue = colors[2];
-  // The above line but with colors dereferenced
   delete[] colors; // Prevents memory leaks
   for (int i = 0; i < NUM_LEDS; i++)
     ring.setPixelColor(i, red, green, blue); // Sets the color
 }
-
 
 void neoPixelConfigMenu()
 {
@@ -1089,6 +1242,7 @@ void alarmGoingOffMenu()
   { // Stop the alarm if the physical button is pressed or if any button on the remote is pressed
     Serial.println("Button Pressed");
     menu = 0;
+    menuSelectionIndex = 0;
     alarmGoingOff = false;
     Alarm.enable(mainAlarm); // Re-enable the alarm
     fanSpeed = prefs.fanSpeed;
@@ -1103,16 +1257,16 @@ void menuSelectionMenu()
   switch (pressedButton)
   {
   case 8: // The left button (Directly to the left of play)
-    menuSelectionIndex = (menuSelectionIndex + 2) % 3;
+    menuSelectionIndex = (menuSelectionIndex + 2) % 4;
     break;
   case 5: // The plus button
-    menuSelectionIndex = (menuSelectionIndex + 2) % 3;
+    menuSelectionIndex = (menuSelectionIndex + 2) % 4;
     break;
   case 10: // The next button (Directly to the right of play)
-    menuSelectionIndex = (menuSelectionIndex + 1) % 3;
+    menuSelectionIndex = (menuSelectionIndex + 1) % 4;
     break;
   case 13: // The Minute Button
-    menuSelectionIndex = (menuSelectionIndex + 1) % 3;
+    menuSelectionIndex = (menuSelectionIndex + 1) % 4;
     break;
   case 9:
     // if (menuSelectionIndex == 4) resetEEPROM();
@@ -1123,7 +1277,7 @@ void menuSelectionMenu()
     menuSelectionIndex = 0;
     if (menu == 2)
     {
-      menuSelectionIndex = alarmSong;
+      menuSelectionIndex = alarmSong % 7; // Wraparound in case there is an error
       resetSongs();
     }
     break;
@@ -1141,10 +1295,8 @@ void menuSelectionMenu()
     display.println("Alarm Sound");
     display.setCursor(8, 36);
     display.println("Set Current Time");
-    // display.setCursor(8, 46);
-    // display.println("Configure NeoPixel");
-    // display.setCursor(8, 56);
-    // display.println("Reset Save-Data");
+    display.setCursor(8, 46);
+    display.println("Reset EEPROM");
 
     display.setCursor(0, 10 * menuSelectionIndex + 16);
     display.println(">");
@@ -1178,7 +1330,17 @@ void savePreferences()
 
 void resetEEPROM()
 {
+  prefs.alarmHourEEPROM = 12;
+  prefs.alarmMinuteEEPROM = 30;
+  prefs.alarmSetBeforeEEPROM = 91;
+  prefs.fanSpeed = 0;
+  prefs.alarmSong = 0;
+  prefs.alarmEnabled = true;
   prefs.alarmSetBeforeEEPROM = 0;
+  prefs.neoColor = 0;
+  prefs.neoPixelMode = 0;
+  prefs.neoBrightness = 25;
+  prefs.neoSpeed = 70;
   savePreferences();
   restartProgram();
 }
