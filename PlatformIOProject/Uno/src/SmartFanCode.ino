@@ -372,7 +372,7 @@ void mainMenu()
       break;
     case 1: // Changing color
       neoColor += 1;
-      neoColor %= neoColorCount - 1;
+      neoColor %= neoColorCount;
       break;
     case 2: // Changing brightness
       maxNeoBrightness += 1;
@@ -398,8 +398,8 @@ void mainMenu()
       neoPixelMode %= neoModes;
       break;
     case 1: // Changing color
-      neoColor += neoColorCount - 2;
-      neoColor %= neoColorCount - 1;
+      neoColor += neoColorCount - 1;
+      neoColor %= neoColorCount;
       break;
     case 2: // Changing brightness
       maxNeoBrightness -= 1;
@@ -509,6 +509,9 @@ void mainMenu()
       case 7:
         neoEditModeString += "Rainbow";
         break;
+      case 8:
+        neoEditModeString += "Off";
+        break;
       }
       break;
     case 2:
@@ -595,7 +598,8 @@ void updateTemperature()
 
   // Converts the temperature to F
   int temperatureHolder = (temperatureC * 9.0 / 5.0) + 32.0;
-  if (temperatureHolder > 0) temperatureF = temperatureHolder;
+  if (temperatureHolder > 0)
+    temperatureF = temperatureHolder;
 }
 
 void setAlarmMenu()
@@ -1057,29 +1061,33 @@ void animateNeoPixel()
         for (int i = 0; i < NUM_LEDS; i++)
         {
           uint32_t color = wheel((i * 256 / NUM_LEDS) & 255);
-          
+
           // Extract RGB components
           uint8_t r = (color >> 16) & 0xFF;
           uint8_t g = (color >> 8) & 0xFF;
           uint8_t b = color & 0xFF;
-          
+
           // Scale with brightness while maintaining color ratios
           r = (r * neoBrightness) / maxNeoBrightness;
           g = (g * neoBrightness) / maxNeoBrightness;
           b = (b * neoBrightness) / maxNeoBrightness;
-          
+
           // Ensure minimum brightness to maintain color perception
-          if (neoBrightness < 20) { // Adjust this threshold as needed
+          if (neoBrightness < 20)
+          {                     // Adjust this threshold as needed
             uint8_t minVal = 1; // Minimum value to maintain color
-            if (r > 0) r = max(r, minVal);
-            if (g > 0) g = max(g, minVal);
-            if (b > 0) b = max(b, minVal);
+            if (r > 0)
+              r = max(r, minVal);
+            if (g > 0)
+              g = max(g, minVal);
+            if (b > 0)
+              b = max(b, minVal);
           }
-          
+
           ring.setPixelColor(i, r, g, b);
         }
       }
-      else 
+      else
       {
         // For solid colors, use the standard brightness control
         ring.setBrightness(neoBrightness);
